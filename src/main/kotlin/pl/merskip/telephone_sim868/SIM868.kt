@@ -5,7 +5,7 @@ import java.io.InputStreamReader
 import java.io.OutputStreamWriter
 import java.lang.Exception
 
-class SIMCom(
+class SIM868(
     port: String
 ) {
 
