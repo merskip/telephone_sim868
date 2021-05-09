@@ -32,29 +32,46 @@ class SIM868(
             throw Exception("Failed while closePort")
     }
 
-    fun command(command: String): List<String> {
-        logger.verbose("Running command: \"$command\"...")
+    fun executeAT(command: String, trimPrefix: Boolean = true): List<String> {
+        return sendCommand("AT$command")
+            .toMutableList()
+            .apply {
+                if (trimPrefix)
+                    set(0, this[0].removePrefix("$command: "))
+            }
+    }
+
+    fun readAT(command: String, trimPrefix: Boolean = true): List<String> {
+        return sendCommand("AT$command?")
+            .toMutableList()
+            .apply {
+                if (trimPrefix)
+                    set(0, this[0].removePrefix("$command: "))
+            }
+    }
+
+    private fun sendCommand(command: String): List<String> {
+        logger.verbose("Sending command: \"$command\"...")
         output.write("$command\r\n")
         output.flush()
         Thread.sleep(100)
 
         val buffer = mutableListOf<Byte>()
         while (input.ready()) {
-
             buffer.add(input.read().toByte())
             Thread.sleep(100)
         }
-        val response = buffer
+        var response = buffer
             .toByteArray()
             .decodeToString()
             .trim()
             .split("\n")
             .map { it.trim() }
-        if (response.first() != command)
-            throw Exception("Response doesn't start with command: \"$command\"")
-        val result = response.drop(1)
-        logger.verbose("Result: $result")
-        return result
-    }
+        logger.verbose("Result: $response")
 
+        if (response.first() == command)
+            response = response.drop(1)
+
+        return response
+    }
 }
