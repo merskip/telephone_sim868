@@ -13,16 +13,13 @@ class Application {
         logger.info("IMEI: ${telephone.imei.dashed(2, 8, 14)}")
         logger.info("ICCID: ${telephone.iccid}")
         logger.info("Signal quality: ${telephone.signalQuality} dBm")
-    }
 
-    private fun String.dashed(vararg indexes: Int): String {
-        var lastIndex = 0
-        val chunks = mutableListOf<String>()
-        for (index in indexes) {
-            chunks.add(substring(lastIndex, index))
-            lastIndex = index
+        telephone.onIncomingCall { phoneNumber ->
+            logger.info("Incoming call from \"$phoneNumber\"...")
+
+            telephone.answerCall()
+            Thread.sleep(3000)
+            telephone.hangUp()
         }
-        chunks.add(substring(lastIndex))
-        return chunks.joinToString("-")
     }
 }

@@ -1,4 +1,4 @@
-package pl.merskip.keklang
+package pl.merskip.telephone_sim868
 
 enum class Color {
     Black,
@@ -44,4 +44,15 @@ fun String.colored(color: Color): String {
     str += this
     str += "\u001b[0m" // Reset color
     return str
+}
+
+fun String.dashed(vararg indexes: Int): String {
+    var lastIndex = 0
+    val chunks = mutableListOf<String>()
+    for (index in indexes) {
+        chunks.add(substring(lastIndex, index))
+        lastIndex = index
+    }
+    chunks.add(substring(lastIndex))
+    return chunks.joinToString("-")
 }

@@ -36,6 +36,28 @@ class TelephoneSIM868(
             )[rssi]
         }
 
+    private val incomingCallCallbacks = mutableListOf<(phoneNumber: String) -> Unit>()
+
+    init {
+        sim868.writeAT("+CLIP", "1")
+        sim868.observeUnsoliciteMessage { message ->
+            when (message.primaryCode) {
+                "RING" -> unsolicitedCodeRing(message)
+                else -> logger.warning("Unknown unsolicited code=${message.primaryCode}")
+            }
+        }
+    }
+
+    private fun unsolicitedCodeRing(message: SIM868.UnsolicitedMessage) {
+        val phoneNumber = message["+CLIP"].getString(0)
+//        val type = message["+CLIP"].getInt(1)
+//        val subAddress = message["+CLIP"].getString(2)
+//        val subAddressType = message["+CLIP"].getInt(3)
+//        val phoneBookIndex = message["+CLIP"].getString(4)
+//        val cliValidity = message["+CLIP"].getInt(5)
+        incomingCallCallbacks.forEach { it(phoneNumber) }
+    }
+
     override fun unlock(enterPin: () -> String, enterPuk: () -> String) {
         val result = sim868.readAT("+CPIN")
         when (result[0]) {
@@ -61,15 +83,15 @@ class TelephoneSIM868(
     }
 
     override fun answerCall() {
-        TODO("Not yet implemented")
+        sim868.executeAT("A")
     }
 
     override fun hangUp() {
-        TODO("Not yet implemented")
+        sim868.executeAT("H")
     }
 
     override fun onIncomingCall(callback: (phoneNumber: String) -> Unit) {
-        TODO("Not yet implemented")
+        incomingCallCallbacks.add(callback)
     }
 
     override fun onSMSReceived(callback: (phoneNumber: String, message: String) -> Unit) {

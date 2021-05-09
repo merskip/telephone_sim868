@@ -1,7 +1,5 @@
 package pl.merskip.telephone_sim868
 
-import pl.merskip.keklang.Color
-import pl.merskip.keklang.colored
 import java.time.Instant
 
 class Logger<T>(
