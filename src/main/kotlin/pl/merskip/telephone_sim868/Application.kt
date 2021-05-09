@@ -1,7 +1,5 @@
 package pl.merskip.telephone_sim868
 
-import java.lang.Exception
-
 class Application {
 
     private val logger = Logger(this::class.java)

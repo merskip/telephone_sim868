@@ -38,7 +38,7 @@ class Logger<T>(
         return when (level) {
             Level.VERBOSE -> Color.DarkGray
             Level.DEBUG -> Color.LightGray
-            Level.INFO -> Color.Default
+            Level.INFO -> Color.Cyan
             Level.WARNING -> Color.Yellow
             Level.ERROR -> Color.Red
         }

@@ -1,20 +1,21 @@
 package pl.merskip.telephone_sim868
 
 import com.fazecast.jSerialComm.SerialPort
-import java.io.InputStreamReader
-import java.io.OutputStreamWriter
 import java.lang.Exception
 
 class SIM868(
-    port: String
+    port: String,
+    baudRate: Int = 9600
 ) {
 
     private val logger = Logger(this::class.java)
 
-    private val serialPort = SerialPort.getCommPort(port)!!
+    private val serialPort = SerialPort.getCommPort(port).apply {
+        this.baudRate = baudRate
+    }
 
-    private val output = OutputStreamWriter(serialPort.outputStream)
-    private val input = InputStreamReader(serialPort.inputStream)
+    private val output = serialPort.outputStream
+    private val input = serialPort.inputStream
 
     init {
         open()
@@ -52,21 +53,32 @@ class SIM868(
 
     private fun sendCommand(command: String): List<String> {
         logger.verbose("Sending command: \"$command\"...")
-        output.write("$command\r\n")
+        output.write("$command\r\n".toByteArray())
         output.flush()
-        Thread.sleep(100)
 
-        val buffer = mutableListOf<Byte>()
-        while (input.ready()) {
-            buffer.add(input.read().toByte())
-            Thread.sleep(100)
+        while (input.available() == 0) {
+            Thread.sleep(10)
         }
+
+        val buffer = ByteArray(4 * 1024) // 4 kB
+        var offset = 0
+        while (true) {
+            val bytesAvailable = input.available()
+            if (bytesAvailable == 0)
+                break
+            input.read(buffer, offset, bytesAvailable)
+            offset += bytesAvailable
+            Thread.sleep(10)
+        }
+
         var response = buffer
+            .take(offset)
             .toByteArray()
             .decodeToString()
             .trim()
             .split("\n")
             .map { it.trim() }
+
         logger.verbose("Result: $response")
 
         if (response.first() == command)

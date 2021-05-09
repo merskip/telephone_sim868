@@ -10,7 +10,7 @@ interface Telephone {
 
     fun call(phoneNumber: String)
 
-    fun sendSMS(message: String)
+    fun sendSMS(phoneNumber: String, message: String)
 
     fun answerCall()
 

@@ -56,7 +56,7 @@ class TelephoneSIM868(
         TODO("Not yet implemented")
     }
 
-    override fun sendSMS(message: String) {
+    override fun sendSMS(phoneNumber: String, message: String) {
         TODO("Not yet implemented")
     }
 
