@@ -18,5 +18,7 @@ interface Telephone {
 
     fun onIncomingCall(callback: (phoneNumber: String) -> Unit)
 
+    fun onDtmfReceived(callback: (key: String) -> Unit)
+
     fun onSMSReceived(callback: (phoneNumber: String, message: String) -> Unit)
 }

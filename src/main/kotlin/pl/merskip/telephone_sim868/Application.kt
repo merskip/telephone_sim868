@@ -17,9 +17,12 @@ class Application {
         telephone.onIncomingCall { phoneNumber ->
             logger.info("Incoming call from \"$phoneNumber\"...")
 
+            Thread.sleep(2000)
             telephone.answerCall()
-            Thread.sleep(3000)
-            telephone.hangUp()
+        }
+
+        telephone.onDtmfReceived { key ->
+            logger.info("Received DTMF key: \"$key\"")
         }
     }
 }

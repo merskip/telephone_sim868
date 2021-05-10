@@ -69,8 +69,6 @@ class SIM868(
         logger.debug("Started thread (id=${unsolicitedCodesThread.id}, name=${unsolicitedCodesThread.name}) for observe unsolicited codes")
     }
 
-
-
     fun readAT(command: String): List<String> {
         return sendCommand("AT$command?")
             .removeLeadingCommand(command)

@@ -4,7 +4,7 @@ import java.lang.Exception
 
 class TelephoneSIM868(
     private val sim868: SIM868
-): Telephone {
+) : Telephone {
 
     private val logger = Logger(this::class.java)
 
@@ -37,12 +37,17 @@ class TelephoneSIM868(
         }
 
     private val incomingCallCallbacks = mutableListOf<(phoneNumber: String) -> Unit>()
+    private val dtmfReceivedCallbacks = mutableListOf<(key: String) -> Unit>()
 
     init {
-        sim868.writeAT("+CLIP", "1")
+        logger.debug("Configuring SIM868...")
+        sim868.writeAT("+CLIP", "1") // Enable caller phone number while ring
+        sim868.writeAT("+DDET", "1,200,0,0") // Enable detect DTMF
+
         sim868.observeUnsoliciteMessage { message ->
             when (message.primaryCode) {
                 "RING" -> unsolicitedCodeRing(message)
+                "+DTMF" -> unsolicitedCodeDtmf(message)
                 else -> logger.warning("Unknown unsolicited code=${message.primaryCode}")
             }
         }
@@ -56,6 +61,12 @@ class TelephoneSIM868(
 //        val phoneBookIndex = message["+CLIP"].getString(4)
 //        val cliValidity = message["+CLIP"].getInt(5)
         incomingCallCallbacks.forEach { it(phoneNumber) }
+    }
+
+    private fun unsolicitedCodeDtmf(message: SIM868.UnsolicitedMessage) {
+        val key = message["+DTMF"].value
+            ?: throw Exception("No value while +DTMF")
+        dtmfReceivedCallbacks.forEach { it(key) }
     }
 
     override fun unlock(enterPin: () -> String, enterPuk: () -> String) {
@@ -75,7 +86,7 @@ class TelephoneSIM868(
     }
 
     override fun call(phoneNumber: String) {
-        TODO("Not yet implemented")
+        sim868.executeAT("D$phoneNumber;")
     }
 
     override fun sendSMS(phoneNumber: String, message: String) {
@@ -92,6 +103,10 @@ class TelephoneSIM868(
 
     override fun onIncomingCall(callback: (phoneNumber: String) -> Unit) {
         incomingCallCallbacks.add(callback)
+    }
+
+    override fun onDtmfReceived(callback: (key: String) -> Unit) {
+        dtmfReceivedCallbacks.add(callback)
     }
 
     override fun onSMSReceived(callback: (phoneNumber: String, message: String) -> Unit) {
