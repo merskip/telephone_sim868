@@ -2,9 +2,9 @@ package pl.merskip.telephone_sim868
 
 import pl.merskip.telephone_sim868.sim868.SIM868
 import pl.merskip.telephone_sim868.sim868.TelephoneSIM868
-import java.io.File
+import java.awt.SystemColor.info
+import java.lang.Exception
 import javax.sound.sampled.*
-import kotlin.math.log
 
 
 class Application {
@@ -38,28 +38,39 @@ class Application {
             logger.info("Received DTMF key: \"$key\"")
         }
 
-//        telephone.call("xxxxxxxxx",
-//            onAnswer = {
-//                playAudio {
-//                    logger.info("Finishing call")
-//                    Thread.sleep(500)
-//                    telephone.hangUp()
-//                }
-//            },
-//            onNoResponse = {
-//                logger.info("No response")
-//                telephone.hangUp()
-//            })
+        telephone.call("xxxxxxxxx",
+            onAnswer = {
+                Thread.sleep(1500)
+                playAudio {
+                    logger.info("Finishing call")
+                    Thread.sleep(500)
+                    telephone.hangUp()
+                }
+            },
+            onNoResponse = {
+                logger.info("No response")
+                telephone.hangUp()
+            })
+
     }
 
     private fun playAudio(completed: () -> Unit) {
         logger.info("Start playing audio")
-        val audioStream = this::class.java.classLoader.getResourceAsStream("stachu_jest_stachu_w_domu.wav")
+
+        var mixerInfo: Mixer.Info? = null
+
+        for (info in AudioSystem.getMixerInfo()) {
+            if (info.name == "S?uchawki (Realtek(R) Audio)") {
+                logger.debug("Selecting output: $info")
+                mixerInfo = info
+            }
+        }
+        if (mixerInfo == null) throw Exception("No mixer info")
+
+        val audioStream = this::class.java.classLoader.getResourceAsStream("stachu_jest_stachu_w_domu_eddited.wav")
         val audioInput = AudioSystem.getAudioInputStream(audioStream)
 
-        val info = DataLine.Info(Clip::class.java, audioInput.format)
-        val audioClip = AudioSystem.getLine(info) as Clip
-
+        val audioClip = AudioSystem.getClip(mixerInfo)
         audioClip.open(audioInput)
         audioClip.addLineListener { event ->
             logger.verbose("Audio event: ${event.type}")
