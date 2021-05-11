@@ -15,6 +15,8 @@ class Response(
         if (index != null) getList(command)[index]
         else getList(command).single()
 
+    fun has(command: String): Boolean = getList(command).isNotEmpty()
+
     fun getList(command: String): List<Entity> =
         entities.filter { it.command == command }
 

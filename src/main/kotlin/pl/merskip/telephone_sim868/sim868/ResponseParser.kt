@@ -1,8 +1,11 @@
 package pl.merskip.telephone_sim868.sim868
 
+import pl.merskip.telephone_sim868.Logger
 import java.lang.Exception
 
 class ResponseParser {
+
+    private val logger = Logger(this::class.java)
 
     fun parse(text: String): Response {
         val lines = text.split("\n")
@@ -44,8 +47,10 @@ class ResponseParser {
             }
         }
 
-        if (status == null)
-            throw Exception("Not found status in reponse")
+        if (status == null) {
+            logger.error("Not found status in reponse")
+            status = Response.Status.OK
+        }
 
         return Response(status, entities.toList(), data)
     }

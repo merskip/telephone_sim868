@@ -8,7 +8,7 @@ interface Telephone {
 
     fun unlock(enterPin: () -> String, enterPuk: () -> String)
 
-    fun call(phoneNumber: String)
+    fun call(phoneNumber: String, onAnswer: () -> Unit, onNoResponse: () -> Unit)
 
     fun sendSMS(phoneNumber: String, message: String)
 

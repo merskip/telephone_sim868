@@ -128,8 +128,10 @@ class SIM868(
     }
 
     private fun InputStream.waitForBytes() {
+        Thread.sleep(250)
+
         while (available() == 0) {
-            Thread.sleep(10)
+            Thread.sleep(100)
         }
     }
 

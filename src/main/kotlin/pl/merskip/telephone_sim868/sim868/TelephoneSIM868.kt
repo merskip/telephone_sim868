@@ -72,8 +72,7 @@ class TelephoneSIM868(
         val index = message["+CMTI"].getInt(1)
 
         if (storage == "SM") {
-        }
-        else {
+        } else {
             logger.warning("Unexpected storage: \"$storage\"")
         }
     }
@@ -98,8 +97,25 @@ class TelephoneSIM868(
         }
     }
 
-    override fun call(phoneNumber: String) {
+    override fun call(phoneNumber: String, onAnswer: () -> Unit, onNoResponse: () -> Unit) {
         sim868.executeAT("D$phoneNumber;")
+        Thread.sleep(1000)
+
+        while (true) {
+            val response = sim868.executeAT("+CLCC")
+            if (response.has("+CLCC")) {
+                val callState = response[2].integer
+                logger.verbose("Call state=${callState}")
+                if (callState == 0) {
+                    onAnswer()
+                    break
+                }
+            } else {
+                onNoResponse()
+                break
+            }
+            Thread.sleep(1000)
+        }
     }
 
     override fun sendSMS(phoneNumber: String, message: String) {
