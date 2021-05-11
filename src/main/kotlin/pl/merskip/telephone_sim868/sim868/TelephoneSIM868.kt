@@ -1,5 +1,7 @@
-package pl.merskip.telephone_sim868
+package pl.merskip.telephone_sim868.sim868
 
+import pl.merskip.telephone_sim868.Logger
+import pl.merskip.telephone_sim868.Telephone
 import java.lang.Exception
 
 class TelephoneSIM868(
@@ -9,19 +11,15 @@ class TelephoneSIM868(
     private val logger = Logger(this::class.java)
 
     override val imei: String
-        get() = sim868.executeAT("+GSN")
-            .dropTrailingOk().single()
+        get() = sim868.executeAT("+GSN").data!!
 
     override val iccid: String
-        get() = sim868.executeAT("+CCID")
-            .dropTrailingOk().single()
+        get() = sim868.executeAT("+CCID").data!!
 
     override val signalQuality: Int?
         get() {
-            val (rssi, ber) = sim868.executeAT("+CSQ")
-                .dropTrailingOk().single()
-                .split(',')
-                .map { it.toInt() }
+            val rssi = sim868.executeAT("+CSQ")[0].integer
+
             // Mapping rssi to dBm
             return mapOf(
                 0 to -115, 1 to -111, 2 to -110, 3 to -108,
@@ -44,7 +42,7 @@ class TelephoneSIM868(
         sim868.writeAT("+CLIP", "1") // Enable caller phone number while ring
         sim868.writeAT("+DDET", "1,200,0,0") // Enable detect DTMF
 
-        sim868.observeUnsoliciteMessage { message ->
+        sim868.observeUnsolicitedMessage { message ->
             when (message.primaryCode) {
                 "RING" -> unsolicitedCodeRing(message)
                 "+DTMF" -> unsolicitedCodeDtmf(message)
@@ -69,9 +67,24 @@ class TelephoneSIM868(
         dtmfReceivedCallbacks.forEach { it(key) }
     }
 
+    private fun unsolicitedCodeCmti(message: SIM868.UnsolicitedMessage) {
+        val storage = message["+CMTI"].getString(0)
+        val index = message["+CMTI"].getInt(1)
+
+        if (storage == "SM") {
+        }
+        else {
+            logger.warning("Unexpected storage: \"$storage\"")
+        }
+    }
+
+    fun readSMSByIndex(index: Int) {
+
+        sim868.writeAT("+CMGR", "$index")
+    }
+
     override fun unlock(enterPin: () -> String, enterPuk: () -> String) {
-        val result = sim868.readAT("+CPIN")
-        when (result[0]) {
+        when (sim868.readAT("+CPIN").string) {
             "READY" -> return
             "SIM PIN" -> {
                 val pin = enterPin()
@@ -81,7 +94,7 @@ class TelephoneSIM868(
                 val puk = enterPuk()
                 throw NotImplementedError()
             }
-            else -> throw Exception("Unknown code: ${result[0]}")
+            else -> throw Exception("Unknown code")
         }
     }
 

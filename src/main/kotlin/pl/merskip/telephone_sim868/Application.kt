@@ -1,5 +1,8 @@
 package pl.merskip.telephone_sim868
 
+import pl.merskip.telephone_sim868.sim868.SIM868
+import pl.merskip.telephone_sim868.sim868.TelephoneSIM868
+
 class Application {
 
     private val logger = Logger(this::class.java)

@@ -56,3 +56,14 @@ fun String.dashed(vararg indexes: Int): String {
     chunks.add(substring(lastIndex))
     return chunks.joinToString("-")
 }
+
+fun String.escaped(): String {
+    return map { char ->
+        when {
+            char == '\r' -> "\\r"
+            char == '\n' -> "\\n"
+            char.isISOControl() -> "\\u${char.code}"
+            else -> char
+        }
+    }.joinToString("")
+}

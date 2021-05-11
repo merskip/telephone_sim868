@@ -1,6 +1,8 @@
-package pl.merskip.telephone_sim868
+package pl.merskip.telephone_sim868.sim868
 
 import com.fazecast.jSerialComm.SerialPort
+import pl.merskip.telephone_sim868.Logger
+import pl.merskip.telephone_sim868.escaped
 import java.io.InputStream
 import java.lang.Exception
 
@@ -38,7 +40,7 @@ class SIM868(
             throw Exception("Failed while closePort")
     }
 
-    fun observeUnsoliciteMessage(callback: (UnsolicitedMessage) -> Unit) {
+    fun observeUnsolicitedMessage(callback: (UnsolicitedMessage) -> Unit) {
         unsolicitedCodesThread = Thread {
             while (!Thread.currentThread().isInterrupted) {
                 if (isExecutingCommand) continue
@@ -69,23 +71,21 @@ class SIM868(
         logger.debug("Started thread (id=${unsolicitedCodesThread.id}, name=${unsolicitedCodesThread.name}) for observe unsolicited codes")
     }
 
-    fun readAT(command: String): List<String> {
-        return sendCommand("AT$command?")
-            .removeLeadingCommand(command)
-    }
+    fun testAT(command: String) = sendCommand("AT$command=?")
 
-    fun writeAT(command: String, value: String) {
-        val result = sendCommand("AT$command=$value")
-        if (result.single() != "OK")
-            throw Exception("Failed write AT")
-    }
+    fun readAT(command: String) = sendCommand("AT$command?")
 
-    fun executeAT(command: String): List<String> {
-        return sendCommand("AT$command")
-            .removeLeadingCommand(command)
-    }
+    fun writeAT(command: String, vararg values: Any) = sendCommand("AT$command=" + values.map {
+        when (it) {
+            is String -> "\"$it\""
+            is Int -> it.toString()
+            else -> throw Exception("Unsupported value type: ${it::class.java}")
+        }
+    }.joinToString(","))
 
-    private fun sendCommand(command: String): List<String> {
+    fun executeAT(command: String) = sendCommand("AT$command")
+
+    private fun sendCommand(command: String): Response {
         logger.verbose("Sending command: \"$command\"...")
         isExecutingCommand = true
         output.write("$command\r\n".toByteArray())
@@ -95,18 +95,13 @@ class SIM868(
         val buffer = input.readBytes()
         isExecutingCommand = false
 
-        var response = buffer
-            .decodeToString()
-            .trim()
-            .split("\n")
-            .map { it.trim() }
+        var response = buffer.decodeToString()
 
-        logger.verbose("Result: $response")
+        if (response.startsWith(command))
+            response = response.removePrefix(command + "\r\n")
+        logger.verbose("Response: \"${response.escaped()}\"")
 
-        if (response.first() == command)
-            response = response.drop(1)
-
-        return response
+        return ResponseParser().parse(response)
     }
 
     data class UnsolicitedMessage(
