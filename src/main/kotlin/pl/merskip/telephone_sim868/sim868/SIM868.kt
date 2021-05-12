@@ -79,6 +79,7 @@ class SIM868(
         values.joinToString(",") {
             when (it) {
                 is String -> "\"$it\""
+                is Char -> "$it"
                 is Int -> it.toString()
                 else -> throw Exception("Unsupported value type: ${it::class.java}")
             }

@@ -6,6 +6,8 @@ interface Telephone {
 
     val signalQuality: Int?
 
+    val currentCall: Call?
+
     fun unlock(enterPin: () -> String, enterPuk: () -> String)
 
     fun call(phoneNumber: String): Call

@@ -12,9 +12,11 @@ class Application {
 
     private val logger = Logger(this::class.java)
 
+    private lateinit var telephone: TelephoneSIM868
+
     fun start() {
         logger.debug("Startup procedure...")
-        val telephone = TelephoneSIM868(SIM868("COM5"))
+        telephone = TelephoneSIM868(SIM868("COM5"))
         telephone.unlock(
             enterPin = { TODO("Enter PIN") },
             enterPuk = { TODO("Enter PUK") }
@@ -31,8 +33,10 @@ class Application {
         readUserInput(
             onInput = { command, parameters ->
                 when (command) {
-                    "help" -> commandHelp(telephone, parameters)
-                    "call" -> commandCall(telephone, parameters)
+                    "help" -> commandHelp(parameters)
+                    "call" -> commandCall(parameters)
+                    "h", "hangup" -> commandHangUp(parameters)
+                    "dtmf" -> commandDTMF(parameters)
                     else -> logger.warning("Unknown command: $command")
                 }
             },
@@ -43,13 +47,15 @@ class Application {
         )
     }
 
-    private fun commandHelp(telephone: Telephone, parameters: List<String>) {
+    private fun commandHelp(parameters: List<String>) {
         println(" help                      Prints help. It's this")
         println(" q, quit                   Terminate application")
         println(" call <phoneNumber>        Make phone call to <phoneNumber>")
+        println(" h, hangup                 End current call")
+        println(" dtmf <0-9A-D*#>...        Send DTMF (Dual-tone multi-frequency signaling)")
     }
 
-    private fun commandCall(telephone: Telephone,  parameters: List<String>) {
+    private fun commandCall(parameters: List<String>) {
         val phoneNumber = parameters.getOrNull(0)
         if (phoneNumber == null) {
             logger.warning("No phoneNumber parameter")
@@ -74,13 +80,30 @@ class Application {
             }
     }
 
+    private fun commandHangUp(parameters: List<String>) {
+        if (telephone.currentCall == null) {
+            logger.warning("No current call")
+            return
+        }
+        telephone.currentCall?.hangUp()
+    }
+
+    private fun commandDTMF(parameters: List<String>) {
+        if (telephone.currentCall == null) {
+            logger.warning("No current call")
+            return
+        }
+        val keys = parameters.joinToString("")
+        telephone.currentCall?.sendDTMF(keys)
+    }
+
     private fun readUserInput(onInput: (command: String, parameters: List<String>) -> Unit, onQuit: () -> Unit) {
         logger.onLogPrinted = {
-            print("\r> ")
+            printPrompt()
         }
 
         while (true) {
-            print("\r> ")
+            printPrompt()
             val line = readLine()
             if (line == "q" || line == "quit") {
                 onQuit()
@@ -92,6 +115,10 @@ class Application {
             }
 
         }
+    }
+
+    private fun printPrompt() {
+        print("\r${telephone.currentCall?.phoneNumber ?: ""}> ")
     }
 
     private fun playAudio(completed: () -> Unit) {

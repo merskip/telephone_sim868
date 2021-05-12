@@ -35,7 +35,7 @@ class TelephoneSIM868(
             )[rssi]
         }
 
-    private var currentCall: BasicCall? = null
+    override var currentCall: BasicCall? = null
 
     init {
         logger.debug("Configuring SIM868...")
@@ -132,7 +132,7 @@ class TelephoneSIM868(
         TODO("Not yet implemented")
     }
 
-    private inner class BasicCall(
+    inner class BasicCall(
         override val phoneNumber: String
     ) : Telephone.Call {
 
