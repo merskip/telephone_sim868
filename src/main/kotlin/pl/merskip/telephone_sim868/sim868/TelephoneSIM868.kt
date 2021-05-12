@@ -3,7 +3,6 @@ package pl.merskip.telephone_sim868.sim868
 import pl.merskip.telephone_sim868.Logger
 import pl.merskip.telephone_sim868.Telephone
 import java.lang.Exception
-import kotlin.math.log
 
 class TelephoneSIM868(
     private val sim868: SIM868
@@ -42,13 +41,13 @@ class TelephoneSIM868(
         sim868.executeAT("E0") // Disable echo mode
         sim868.writeAT("+CLIP", 1) // Enable caller phone number while ring
         sim868.writeAT("+VTD", 3) // Set DTMF to 300 ms
-        sim868.writeAT("+DDET", "1,200,0,0") // Enable detect DTMF
+        sim868.writeAT("+DDET", "1,0,0,0") // Enable detect DTMF
         sim868.writeAT("+CLCC", 1) // Enable notifications when current call state changes
 
         sim868.observeUnsolicitedMessage { message ->
             when (message.entities.firstOrNull()?.command) {
 //                "RING" -> unsolicitedCodeRing(message)
-//                "+DTMF" -> unsolicitedCodeDtmf(message)
+                "+DTMF" -> unsolicitedCodeDTMF(message)
                 "+CLCC" -> unsolicitedCodeCLCC(message)
                 else -> logger.warning("Unknown unsolicited code=${message.entities.firstOrNull()?.command}, data=${message.data}")
             }
@@ -69,11 +68,19 @@ class TelephoneSIM868(
 ////        incomingCallCallbacks.forEach { it(phoneNumber) }
 //    }
 
-//    private fun unsolicitedCodeDtmf(message: SIM868.UnsolicitedMessage) {
-//        val key = message["+DTMF"].value
-//            ?: throw Exception("No value while +DTMF")
-//        dtmfReceivedCallbacks.forEach { it(key) }
-//    }
+    private fun unsolicitedCodeDTMF(message: Message) {
+        val currentCall = currentCall
+        if (currentCall == null) {
+            logger.warning("Received +DTMF without set current call")
+            return
+        }
+
+        message.getList("+DTMF")
+            .map { it[0].string }
+            .forEach { key ->
+                currentCall.onReceivedDTMFCallback?.invoke(currentCall, key)
+            }
+    }
 
     private fun unsolicitedCodeCLCC(message: Message) {
         val currentCall = currentCall
