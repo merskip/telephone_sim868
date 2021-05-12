@@ -23,9 +23,18 @@ class Application {
         logger.info("ICCID: ${telephone.iccid}")
         logger.info("Signal quality: ${telephone.signalQuality} dBm")
 
+        println("Welcum!")
+        println("Type 'help' for help,")
+        println("type 'quit' or 'q' for 'quit'")
+        println()
+
         readUserInput(
             onInput = { command, parameters ->
-                logger.info("User entered: command=$command, parameters=$parameters")
+                when (command) {
+                    "help" -> commandHelp(telephone, parameters)
+                    "call" -> commandCall(telephone, parameters)
+                    else -> logger.warning("Unknown command: $command")
+                }
             },
             onQuit = {
                 telephone.dispose()
@@ -34,22 +43,54 @@ class Application {
         )
     }
 
+    private fun commandHelp(telephone: Telephone, parameters: List<String>) {
+        println(" help                      Prints help. It's this")
+        println(" q, quit                   Terminate application")
+        println(" call <phoneNumber>        Make phone call to <phoneNumber>")
+    }
+
+    private fun commandCall(telephone: Telephone,  parameters: List<String>) {
+        val phoneNumber = parameters.getOrNull(0)
+        if (phoneNumber == null) {
+            logger.warning("No phoneNumber parameter")
+            return
+        }
+
+        telephone.call(phoneNumber)
+            .onDialing { call ->
+                logger.info("Dialing to ${call.phoneNumber}...")
+            }
+            .onRinging {
+                logger.info("Ringing...")
+            }
+            .onAnswerCall {
+                logger.info("Caller answered")
+            }
+            .onReceivedDTMF { _, key ->
+                logger.info("Received DTMF: $key")
+            }
+            .onFinishCall { call ->
+                logger.info("Call with ${call.phoneNumber} finished")
+            }
+    }
+
     private fun readUserInput(onInput: (command: String, parameters: List<String>) -> Unit, onQuit: () -> Unit) {
-        println("Welcum!")
-        println("Type 'help' for help,")
-        println("type 'quit' or 'q' for 'quit'")
-        println()
+        logger.onLogPrinted = {
+            print("\r> ")
+        }
 
         while (true) {
-            print("> ")
+            print("\r> ")
             val line = readLine()
             if (line == "q" || line == "quit") {
                 onQuit()
                 return
             } else if (line != null) {
+                if (line.isBlank()) continue
                 val chunks = line.split(" ")
                 onInput(chunks.first(), chunks.drop(1))
             }
+
         }
     }
 

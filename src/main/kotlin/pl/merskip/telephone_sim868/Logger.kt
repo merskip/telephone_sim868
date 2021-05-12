@@ -14,6 +14,8 @@ class Logger<T>(
         ERROR
     }
 
+    var onLogPrinted: (() -> Unit)? = null
+
     fun verbose(message: String) = log(Level.VERBOSE, message)
 
     fun debug(message: String) = log(Level.DEBUG, message)
@@ -29,7 +31,8 @@ class Logger<T>(
             if (it == cls.simpleName) it
             else it[0].toString()
         }
-        println("${Instant.now()} [$semiSimpleClassName] [$level] $message".colored(getColorByLevel(level)))
+        println("\r${Instant.now()} [$semiSimpleClassName] [$level] $message".colored(getColorByLevel(level)))
+        onLogPrinted?.invoke()
     }
 
     private fun getColorByLevel(level: Level): Color {
