@@ -25,6 +25,10 @@ class Application {
         logger.info("ICCID: ${telephone.iccid}")
         logger.info("Signal quality: ${telephone.signalQuality} dBm")
 
+        telephone.onIncomingCall { incomingCall ->
+            logger.info("Incoming call from ${incomingCall.phoneNumber}. Type 'a' or 'answer' to answer the call.")
+        }
+
         println("Welcum!")
         println("Type 'help' for help,")
         println("type 'quit' or 'q' for 'quit'")
@@ -35,6 +39,7 @@ class Application {
                 when (command) {
                     "help" -> commandHelp(parameters)
                     "call" -> commandCall(parameters)
+                    "a", "answer" -> commandAnswer(parameters)
                     "h", "hangup" -> commandHangUp(parameters)
                     "dtmf" -> commandDTMF(parameters)
                     else -> logger.warning("Unknown command: $command")
@@ -51,6 +56,7 @@ class Application {
         println(" help                      Prints help. It's this")
         println(" q, quit                   Terminate application")
         println(" call <phoneNumber>        Make phone call to <phoneNumber>")
+        println(" a, answer                 Answer the incoming call")
         println(" h, hangup                 End current call")
         println(" dtmf <0-9A-D*#>...        Send DTMF (Dual-tone multi-frequency signaling)")
     }
@@ -78,6 +84,15 @@ class Application {
             .onFinishCall { call ->
                 logger.info("Call with ${call.phoneNumber} finished")
             }
+    }
+
+    private fun commandAnswer(parameters: List<String>) {
+        val incomingCall = telephone.currentCall as? Telephone.IncomingCall
+        if (incomingCall == null) {
+            logger.warning("No current incoming call")
+            return
+        }
+        incomingCall.answer()
     }
 
     private fun commandHangUp(parameters: List<String>) {

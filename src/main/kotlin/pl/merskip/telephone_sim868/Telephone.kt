@@ -12,19 +12,11 @@ interface Telephone {
 
     fun call(phoneNumber: String): Call
 
-    fun onIncomingCall(callback: (incomingCall: IncomingCall) -> Unit): Call
+    fun onIncomingCall(callback: (incomingCall: IncomingCall) -> Unit)
 
     fun sendSMS(phoneNumber: String, message: String)
 
     fun onSMSReceived(callback: (phoneNumber: String, message: String) -> Unit)
-
-    interface IncomingCall {
-        val phoneNumber: String
-
-        fun answer()
-
-        fun hangUp()
-    }
 
     interface Call {
         val phoneNumber: String
@@ -42,5 +34,9 @@ interface Telephone {
         fun sendDTMF(keys: String)
 
         fun hangUp()
+    }
+
+    interface IncomingCall: Call {
+        fun answer()
     }
 }

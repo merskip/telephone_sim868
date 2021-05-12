@@ -34,19 +34,21 @@ class TelephoneSIM868(
             )[rssi]
         }
 
-    override var currentCall: BasicCall? = null
+    override var currentCall: Call? = null
+    private var incomingCallState: CallState? = null
+    private var onIncomingCallCallback: ((incomingCall: Telephone.IncomingCall) -> Unit)? = null
 
     init {
         logger.debug("Configuring SIM868...")
+        sim868.executeAT("Z0") // Reset configuration to default
         sim868.executeAT("E0") // Disable echo mode
-        sim868.writeAT("+CLIP", 1) // Enable caller phone number while ring
         sim868.writeAT("+VTD", 3) // Set DTMF to 300 ms
         sim868.writeAT("+DDET", "1,0,0,0") // Enable detect DTMF
         sim868.writeAT("+CLCC", 1) // Enable notifications when current call state changes
 
         sim868.observeUnsolicitedMessage { message ->
-            when (message.entities.firstOrNull()?.command) {
-//                "RING" -> unsolicitedCodeRing(message)
+            when (message.primaryIdentifier) {
+                "RING" -> unsolicitedCodeRING(message)
                 "+DTMF" -> unsolicitedCodeDTMF(message)
                 "+CLCC" -> unsolicitedCodeCLCC(message)
                 else -> logger.warning("Unknown unsolicited code=${message.entities.firstOrNull()?.command}, data=${message.data}")
@@ -58,15 +60,12 @@ class TelephoneSIM868(
         sim868.dispose()
     }
 
-//    private fun unsolicitedCodeRing(message: Message) {
-//        val phoneNumber = message[0].string
-////        val type = message["+CLIP"].getInt(1)
-////        val subAddress = message["+CLIP"].getString(2)
-////        val subAddressType = message["+CLIP"].getInt(3)
-////        val phoneBookIndex = message["+CLIP"].getString(4)
-////        val cliValidity = message["+CLIP"].getInt(5)
-////        incomingCallCallbacks.forEach { it(phoneNumber) }
-//    }
+    private fun unsolicitedCodeRING(message: Message) {
+        val phoneNumber = incomingCallState?.phoneNumber ?: ""
+        val incomingCall = IncomingCall(phoneNumber)
+        currentCall = incomingCall
+        onIncomingCallCallback?.invoke(incomingCall)
+    }
 
     private fun unsolicitedCodeDTMF(message: Message) {
         val currentCall = currentCall
@@ -75,34 +74,28 @@ class TelephoneSIM868(
             return
         }
 
-        message.getList("+DTMF")
-            .map { it[0].string }
-            .forEach { key ->
-                currentCall.onReceivedDTMFCallback?.invoke(currentCall, key)
-            }
+        val key = message["+DTMF"][0].string
+        currentCall.onReceivedDTMFCallback?.invoke(currentCall, key)
     }
 
     private fun unsolicitedCodeCLCC(message: Message) {
         val currentCall = currentCall
-        if (currentCall == null) {
-            logger.warning("Received +CLCC without set current call")
-            return
-        }
-        message.getList("+CLCC")
-            .map { CallState(it) }
-            .forEach { callState ->
-                if (callState.phoneNumber == currentCall.phoneNumber) {
-                    when (callState.state) {
-                        CallState.State.Dialing -> currentCall.onDialingCallback?.invoke(currentCall)
-                        CallState.State.Alerting -> currentCall.onRingingCallCallback?.invoke(currentCall)
-                        CallState.State.Active -> currentCall.onAnswerCallCallback?.invoke(currentCall)
-                        CallState.State.Disconnect -> currentCall.onFinishCallCallback?.invoke(currentCall)
-                        else -> { }
-                    }
-                } else {
-                    logger.warning("Unknown call state: $callState")
+
+        val callState = CallState(message["+CLCC"])
+        if (callState.phoneNumber == currentCall?.phoneNumber) {
+            when (callState.state) {
+                CallState.State.Dialing -> currentCall.onDialingCallback?.invoke(currentCall)
+                CallState.State.Alerting -> currentCall.onRingingCallCallback?.invoke(currentCall)
+                CallState.State.Active -> currentCall.onAnswerCallCallback?.invoke(currentCall)
+                CallState.State.Disconnect -> currentCall.onFinishCallCallback?.invoke(currentCall)
+                else -> {
                 }
             }
+        } else if (callState.state == CallState.State.Incoming) {
+            incomingCallState = callState
+        } else {
+            logger.warning("Unknown call state: $callState")
+        }
     }
 
     override fun unlock(enterPin: () -> String, enterPuk: () -> String) {
@@ -122,13 +115,13 @@ class TelephoneSIM868(
 
     override fun call(phoneNumber: String): Telephone.Call {
         sim868.executeAT("D$phoneNumber;")
-        return BasicCall(phoneNumber).apply {
+        return Call(phoneNumber).apply {
             currentCall = this
         }
     }
 
-    override fun onIncomingCall(callback: (incomingCall: Telephone.IncomingCall) -> Unit): Telephone.Call {
-        TODO("Not yet implemented")
+    override fun onIncomingCall(callback: (incomingCall: Telephone.IncomingCall) -> Unit) {
+        onIncomingCallCallback = callback
     }
 
     override fun sendSMS(phoneNumber: String, message: String) {
@@ -139,7 +132,16 @@ class TelephoneSIM868(
         TODO("Not yet implemented")
     }
 
-    inner class BasicCall(
+    inner class IncomingCall(
+        phoneNumber: String
+    ) : Call(phoneNumber), Telephone.IncomingCall {
+
+        override fun answer() {
+            sim868.executeAT("A")
+        }
+    }
+
+    open inner class Call(
         override val phoneNumber: String
     ) : Telephone.Call {
 

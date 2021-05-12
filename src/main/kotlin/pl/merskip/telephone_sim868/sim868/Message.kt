@@ -9,6 +9,9 @@ data class Message(
     val data: String?
 ) {
 
+    val primaryIdentifier: String get() =
+        entities.firstOrNull()?.command ?: data ?: throw Exception("No entities and data")
+
     enum class Status {
         OK,
         ERROR
