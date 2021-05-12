@@ -13,6 +13,7 @@ class Application {
     private val logger = Logger(this::class.java)
 
     fun start() {
+        logger.debug("Startup procedure...")
         val telephone = TelephoneSIM868(SIM868("COM5"))
         telephone.unlock(
             enterPin = { TODO("Enter PIN") },
@@ -22,6 +23,34 @@ class Application {
         logger.info("ICCID: ${telephone.iccid}")
         logger.info("Signal quality: ${telephone.signalQuality} dBm")
 
+        readUserInput(
+            onInput = { command, parameters ->
+                logger.info("User entered: command=$command, parameters=$parameters")
+            },
+            onQuit = {
+                telephone.dispose()
+                println("Bye!")
+            }
+        )
+    }
+
+    private fun readUserInput(onInput: (command: String, parameters: List<String>) -> Unit, onQuit: () -> Unit) {
+        println("Welcum!")
+        println("Type 'help' for help,")
+        println("type 'quit' or 'q' for 'quit'")
+        println()
+
+        while (true) {
+            print("> ")
+            val line = readLine()
+            if (line == "q" || line == "quit") {
+                onQuit()
+                return
+            } else if (line != null) {
+                val chunks = line.split(" ")
+                onInput(chunks.first(), chunks.drop(1))
+            }
+        }
     }
 
     private fun playAudio(completed: () -> Unit) {

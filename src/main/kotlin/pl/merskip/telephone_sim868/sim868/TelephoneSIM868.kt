@@ -55,6 +55,10 @@ class TelephoneSIM868(
         }
     }
 
+    fun dispose() {
+        sim868.dispose()
+    }
+
 //    private fun unsolicitedCodeRing(message: Message) {
 //        val phoneNumber = message[0].string
 ////        val type = message["+CLIP"].getInt(1)
