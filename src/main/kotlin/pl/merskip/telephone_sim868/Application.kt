@@ -5,6 +5,7 @@ import pl.merskip.telephone_sim868.sim868.TelephoneSIM868
 import java.awt.SystemColor.info
 import java.lang.Exception
 import javax.sound.sampled.*
+import kotlin.math.log
 
 
 class Application {
@@ -20,37 +21,6 @@ class Application {
         logger.info("IMEI: ${telephone.imei.dashed(2, 8, 14)}")
         logger.info("ICCID: ${telephone.iccid}")
         logger.info("Signal quality: ${telephone.signalQuality} dBm")
-
-        telephone.onIncomingCall { phoneNumber ->
-            logger.info("Incoming call from \"$phoneNumber\"...")
-
-            Thread.sleep(500)
-            telephone.answerCall()
-
-            playAudio {
-                logger.info("Finishing call")
-                Thread.sleep(500)
-                telephone.hangUp()
-            }
-        }
-
-        telephone.onDtmfReceived { key ->
-            logger.info("Received DTMF key: \"$key\"")
-        }
-
-        telephone.call("xxxxxxxxx",
-            onAnswer = {
-                Thread.sleep(1500)
-                playAudio {
-                    logger.info("Finishing call")
-                    Thread.sleep(500)
-                    telephone.hangUp()
-                }
-            },
-            onNoResponse = {
-                logger.info("No response")
-                telephone.hangUp()
-            })
 
     }
 

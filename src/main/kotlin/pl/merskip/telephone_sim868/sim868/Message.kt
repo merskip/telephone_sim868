@@ -1,6 +1,9 @@
 package pl.merskip.telephone_sim868.sim868
 
-class Response(
+import java.lang.Exception
+
+data class Message(
+    private val requestedCommand: String? = null,
     val status: Status,
     val entities: List<Entity>,
     val data: String?
@@ -24,9 +27,14 @@ class Response(
 
     val integer: Int get() = get(0).integer
 
-    operator fun get(index: Int) = entities.single()[index]
+    operator fun get(index: Int): Entity.Value {
+        if (requestedCommand == null) throw Exception("This method can be used only when requestedCommand is set")
+        return get(requestedCommand)[index]
+    }
 
-    class Entity(
+    fun withRequestedCommand(command: String) = copy(requestedCommand = command)
+
+    data class Entity(
         val command: String,
         private val values: List<Value>,
         val data: String?

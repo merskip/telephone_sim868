@@ -3,19 +3,19 @@ package pl.merskip.telephone_sim868.sim868
 import org.junit.Assert
 import org.junit.Test
 
-internal class ResponseParserTest {
+internal class MessageParserTest {
 
     @Test
     fun parseJustOk() {
         val response = ResponseParser().parse("OK\r\n")
-        Assert.assertEquals(Response.Status.OK, response.status)
+        Assert.assertEquals(Message.Status.OK, response.status)
         Assert.assertTrue(response.entities.isEmpty())
     }
 
     @Test
     fun parseJustError() {
         val response = ResponseParser().parse("ERROR\r\n")
-        Assert.assertEquals(Response.Status.ERROR, response.status)
+        Assert.assertEquals(Message.Status.ERROR, response.status)
         Assert.assertTrue(response.entities.isEmpty())
     }
 
@@ -26,7 +26,7 @@ internal class ResponseParserTest {
                     "\r\n" +
                     "OK\r\n"
         )
-        Assert.assertEquals(Response.Status.OK, response.status)
+        Assert.assertEquals(Message.Status.OK, response.status)
         Assert.assertEquals("READY", response["+CPIN"][0].string)
     }
 
@@ -39,7 +39,7 @@ internal class ResponseParserTest {
                     "\r\n" +
                     "OK\r\n"
         )
-        Assert.assertEquals(Response.Status.OK, response.status)
+        Assert.assertEquals(Message.Status.OK, response.status)
         Assert.assertEquals(3, response.getList("+CPOL").size)
 
         Assert.assertEquals(1, response["+CPOL", 0][0].integer)
@@ -64,7 +64,7 @@ internal class ResponseParserTest {
                     "OK\r\n"
         )
 
-        Assert.assertEquals(Response.Status.OK, response.status)
+        Assert.assertEquals(Message.Status.OK, response.status)
         Assert.assertEquals(0, response["+CMGR"][0].integer)
         Assert.assertEquals("", response["+CMGR"][1].string)
         Assert.assertEquals(23, response["+CMGR"][2].integer)
@@ -79,7 +79,7 @@ internal class ResponseParserTest {
                     "OK\r\n"
         )
 
-        Assert.assertEquals(Response.Status.OK, response.status)
+        Assert.assertEquals(Message.Status.OK, response.status)
         Assert.assertEquals("917533699292936", response.data)
     }
 }

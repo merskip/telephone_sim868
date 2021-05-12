@@ -3,6 +3,7 @@ package pl.merskip.telephone_sim868.sim868
 import pl.merskip.telephone_sim868.Logger
 import pl.merskip.telephone_sim868.Telephone
 import java.lang.Exception
+import kotlin.math.log
 
 class TelephoneSIM868(
     private val sim868: SIM868
@@ -18,7 +19,7 @@ class TelephoneSIM868(
 
     override val signalQuality: Int?
         get() {
-            val rssi = sim868.executeAT("+CSQ")[0].integer
+            val rssi = sim868.executeAT("+CSQ").integer
 
             // Mapping rssi to dBm
             return mapOf(
@@ -34,52 +35,63 @@ class TelephoneSIM868(
             )[rssi]
         }
 
-    private val incomingCallCallbacks = mutableListOf<(phoneNumber: String) -> Unit>()
-    private val dtmfReceivedCallbacks = mutableListOf<(key: String) -> Unit>()
+    private var currentCall: BasicCall? = null
 
     init {
         logger.debug("Configuring SIM868...")
-        sim868.writeAT("+CLIP", "1") // Enable caller phone number while ring
+        sim868.executeAT("E0") // Disable echo mode
+        sim868.writeAT("+CLIP", 1) // Enable caller phone number while ring
+        sim868.writeAT("+VTD", 3) // Set DTMF to 300 ms
         sim868.writeAT("+DDET", "1,200,0,0") // Enable detect DTMF
+        sim868.writeAT("+CLCC", 1) // Enable notifications when current call state changes
 
         sim868.observeUnsolicitedMessage { message ->
-            when (message.primaryCode) {
-                "RING" -> unsolicitedCodeRing(message)
-                "+DTMF" -> unsolicitedCodeDtmf(message)
-                else -> logger.warning("Unknown unsolicited code=${message.primaryCode}")
+            when (message.entities.firstOrNull()?.command) {
+//                "RING" -> unsolicitedCodeRing(message)
+//                "+DTMF" -> unsolicitedCodeDtmf(message)
+                "+CLCC" -> unsolicitedCodeCLCC(message)
+                else -> logger.warning("Unknown unsolicited code=${message.entities.firstOrNull()?.command}, data=${message.data}")
             }
         }
     }
 
-    private fun unsolicitedCodeRing(message: SIM868.UnsolicitedMessage) {
-        val phoneNumber = message["+CLIP"].getString(0)
-//        val type = message["+CLIP"].getInt(1)
-//        val subAddress = message["+CLIP"].getString(2)
-//        val subAddressType = message["+CLIP"].getInt(3)
-//        val phoneBookIndex = message["+CLIP"].getString(4)
-//        val cliValidity = message["+CLIP"].getInt(5)
-        incomingCallCallbacks.forEach { it(phoneNumber) }
-    }
+//    private fun unsolicitedCodeRing(message: Message) {
+//        val phoneNumber = message[0].string
+////        val type = message["+CLIP"].getInt(1)
+////        val subAddress = message["+CLIP"].getString(2)
+////        val subAddressType = message["+CLIP"].getInt(3)
+////        val phoneBookIndex = message["+CLIP"].getString(4)
+////        val cliValidity = message["+CLIP"].getInt(5)
+////        incomingCallCallbacks.forEach { it(phoneNumber) }
+//    }
 
-    private fun unsolicitedCodeDtmf(message: SIM868.UnsolicitedMessage) {
-        val key = message["+DTMF"].value
-            ?: throw Exception("No value while +DTMF")
-        dtmfReceivedCallbacks.forEach { it(key) }
-    }
+//    private fun unsolicitedCodeDtmf(message: SIM868.UnsolicitedMessage) {
+//        val key = message["+DTMF"].value
+//            ?: throw Exception("No value while +DTMF")
+//        dtmfReceivedCallbacks.forEach { it(key) }
+//    }
 
-    private fun unsolicitedCodeCmti(message: SIM868.UnsolicitedMessage) {
-        val storage = message["+CMTI"].getString(0)
-        val index = message["+CMTI"].getInt(1)
-
-        if (storage == "SM") {
-        } else {
-            logger.warning("Unexpected storage: \"$storage\"")
+    private fun unsolicitedCodeCLCC(message: Message) {
+        val currentCall = currentCall
+        if (currentCall == null) {
+            logger.warning("Received +CLCC without set current call")
+            return
         }
-    }
-
-    fun readSMSByIndex(index: Int) {
-
-        sim868.writeAT("+CMGR", "$index")
+        message.getList("+CLCC")
+            .map { CallState(it) }
+            .forEach { callState ->
+                if (callState.phoneNumber == currentCall.phoneNumber) {
+                    when (callState.state) {
+                        CallState.State.Dialing -> currentCall.onDialingCallback?.invoke(currentCall)
+                        CallState.State.Alerting -> currentCall.onRingingCallCallback?.invoke(currentCall)
+                        CallState.State.Active -> currentCall.onAnswerCallCallback?.invoke(currentCall)
+                        CallState.State.Disconnect -> currentCall.onFinishCallCallback?.invoke(currentCall)
+                        else -> { }
+                    }
+                } else {
+                    logger.warning("Unknown call state: $callState")
+                }
+            }
     }
 
     override fun unlock(enterPin: () -> String, enterPuk: () -> String) {
@@ -97,59 +109,76 @@ class TelephoneSIM868(
         }
     }
 
-    override fun call(phoneNumber: String, onAnswer: () -> Unit, onNoResponse: () -> Unit) {
+    override fun call(phoneNumber: String): Telephone.Call {
         sim868.executeAT("D$phoneNumber;")
-        Thread.sleep(1000)
-
-        while (true) {
-            val response = sim868.executeAT("+CLCC")
-            if (response.has("+CLCC")) {
-                val callState = response[2].integer
-                logger.verbose("Call state=${callState}")
-                if (callState == 0) {
-                    onAnswer()
-                    break
-                }
-            } else {
-                onNoResponse()
-                break
-            }
-            Thread.sleep(1000)
+        return BasicCall(phoneNumber).apply {
+            currentCall = this
         }
+    }
+
+    override fun onIncomingCall(callback: (incomingCall: Telephone.IncomingCall) -> Unit): Telephone.Call {
+        TODO("Not yet implemented")
     }
 
     override fun sendSMS(phoneNumber: String, message: String) {
         TODO("Not yet implemented")
     }
 
-    override fun answerCall() {
-        sim868.executeAT("A")
-    }
-
-    override fun hangUp() {
-        sim868.executeAT("H")
-    }
-
-    override fun onIncomingCall(callback: (phoneNumber: String) -> Unit) {
-        incomingCallCallbacks.add(callback)
-    }
-
-    override fun onDtmfReceived(callback: (key: String) -> Unit) {
-        dtmfReceivedCallbacks.add(callback)
-    }
-
     override fun onSMSReceived(callback: (phoneNumber: String, message: String) -> Unit) {
         TODO("Not yet implemented")
     }
 
-    private fun List<String>.dropTrailingOk(): List<String> {
-        return if (last() == "OK") {
-            if (this[size - 2] == "")
-                dropLast(2)
-            else
-                dropLast(1)
-        } else {
-            throw Exception("Something is bad :-(")
+    private inner class BasicCall(
+        override val phoneNumber: String
+    ) : Telephone.Call {
+
+        var onDialingCallback: ((call: Telephone.Call) -> Unit)? = null
+        var onRingingCallCallback: ((call: Telephone.Call) -> Unit)? = null
+        var onAnswerCallCallback: ((call: Telephone.Call) -> Unit)? = null
+        var onReceivedDTMFCallback: ((call: Telephone.Call, key: String) -> Unit)? = null
+        var onFinishCallCallback: ((call: Telephone.Call) -> Unit)? = null
+
+        override fun onDialing(callback: (call: Telephone.Call) -> Unit): Telephone.Call {
+            onDialingCallback = callback
+            return this
+        }
+
+        override fun onRinging(callback: (call: Telephone.Call) -> Unit): Telephone.Call {
+            onRingingCallCallback = callback
+            return this
+        }
+
+        override fun onAnswerCall(callback: (call: Telephone.Call) -> Unit): Telephone.Call {
+            onAnswerCallCallback = callback
+            return this
+        }
+
+        override fun onReceivedDTMF(callback: (call: Telephone.Call, key: String) -> Unit): Telephone.Call {
+            onReceivedDTMFCallback = callback
+            return this
+        }
+
+        override fun onFinishCall(callback: (call: Telephone.Call) -> Unit): Telephone.Call {
+            onFinishCallCallback = callback
+            return this
+        }
+
+        override fun sendDTMF(keys: String) {
+            val allowedChars = listOf(
+                '1', '2', '3', '4', '5', '6', '7', '8',
+                '9', '0', 'A', 'B', 'C', 'D', '*', '#'
+            )
+            for (keyChar in keys) {
+                if (!allowedChars.contains(keyChar)) {
+                    logger.warning("Illegal character for DTMF: $keyChar")
+                    continue
+                }
+                sim868.writeAT("+VTS", keyChar)
+            }
+        }
+
+        override fun hangUp() {
+            sim868.executeAT("H")
         }
     }
 }
